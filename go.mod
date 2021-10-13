@@ -3,6 +3,7 @@ module ipaas_bwstress
 go 1.16
 
 require (
+	github.com/andelf/go-curl v0.0.0-20200630032108-fd49ff24ed97
 	github.com/enoch300/collectd v1.2.9
 	github.com/enoch300/glog v0.0.0-20210913102843-60ae70263a05
 	github.com/golang-module/carbon v1.5.4

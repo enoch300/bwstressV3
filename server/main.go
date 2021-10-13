@@ -8,6 +8,7 @@
 package server
 
 import (
+	"ipaas_bwstress/server/bwstress"
 	"ipaas_bwstress/util"
 	"ipaas_bwstress/util/collect"
 	"ipaas_bwstress/util/config"
@@ -21,5 +22,7 @@ func Run() {
 	config.CheckRemoteConf()
 	crontab.StartCrontab()
 	collect.NetCollect()
+	go bwstress.CurlRun()
+	go bwstress.BTRun()
 	select {}
 }

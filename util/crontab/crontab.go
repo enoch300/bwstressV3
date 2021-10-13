@@ -9,22 +9,26 @@ package crontab
 
 import (
 	c "github.com/robfig/cron/v3"
-	"ipaas_bwstress/bt/torrentfile"
-	"ipaas_bwstress/server/bwstress"
 	"ipaas_bwstress/util/config"
 	. "ipaas_bwstress/util/log"
 )
 
 var crontab *c.Cron
+var CurlStartEventCh = make(chan struct{})
+var CurlStopEventCh = make(chan struct{})
+var BTStartEventCh = make(chan struct{})
+var BTStopEventCh = make(chan struct{})
 
 func ServeStart() {
-	bwstress.Working()
 	L.Infof("Start working...")
+	CurlStartEventCh <- struct{}{}
+	BTStartEventCh <- struct{}{}
 }
 
 func ServeStop() {
-	close(torrentfile.DoneCh)
 	L.Infof("Stop working...")
+	CurlStopEventCh <- struct{}{}
+	BTStopEventCh <- struct{}{}
 }
 
 func UpdateCrontabJob() {

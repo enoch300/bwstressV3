@@ -3,15 +3,13 @@ package client
 import (
 	"bytes"
 	"fmt"
+	"ipaas_bwstress/bt/bitfield"
+	"ipaas_bwstress/bt/handshake"
+	"ipaas_bwstress/bt/message"
+	"ipaas_bwstress/bt/peers"
+	"ipaas_bwstress/util/collect"
 	"net"
 	"time"
-
-	"ipaas_bwstress/bt/bitfield"
-	"ipaas_bwstress/bt/peers"
-
-	"ipaas_bwstress/bt/message"
-
-	"ipaas_bwstress/bt/handshake"
 )
 
 // A Client is a TCP connection with a peer
@@ -66,7 +64,8 @@ func recvBitfield(conn net.Conn) (bitfield.Bitfield, error) {
 
 // New connects with a peer, completes a handshake, and receives a handshake
 // returns an err if any of those fail.
-func New(peer peers.Peer, peerID, infoHash [20]byte, srcIp string) (*Client, error) {
+func New(peer peers.Peer, peerID, infoHash [20]byte, ethName string) (*Client, error) {
+	srcIp := collect.Net.IfiMap[ethName].Ip
 	dialer := &net.Dialer{
 		Timeout: 3 * time.Second,
 		LocalAddr: &net.TCPAddr{

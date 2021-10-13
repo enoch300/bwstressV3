@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
-	"log"
 	"time"
 
 	"ipaas_bwstress/bt/client"
 	"ipaas_bwstress/bt/message"
 	"ipaas_bwstress/bt/peers"
+	. "ipaas_bwstress/util/log"
 )
 
 // MaxBlockSize is the largest number of bytes a request can ask for
@@ -129,14 +129,13 @@ func checkIntegrity(pw *pieceWork, buf []byte) error {
 	return nil
 }
 
-func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork, srcIp string, doneCh chan struct{}) {
-	c, err := client.New(peer, t.PeerID, t.InfoHash, srcIp)
+func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork, ethName string, doneCh chan struct{}) {
+	c, err := client.New(peer, t.PeerID, t.InfoHash, ethName)
 	if err != nil {
 		//log.Printf("Could not handshake with %s. Disconnecting\n", peer.IP)
 		return
 	}
 	defer c.Conn.Close()
-	log.Printf("Completed handshake with %s\n", peer.IP)
 
 	c.SendUnchoke()
 	c.SendInterested()
@@ -150,44 +149,19 @@ func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork
 
 			workQueue <- pw
 			if !c.Bitfield.HasPiece(pw.index) {
-				log.Printf("has no pice%v", pw.index)
 				continue
 			}
 
 			// Download the piece
 			_, err := attemptDownloadPiece(c, pw)
 			if err != nil {
-				log.Println("Exiting", err)
+				L.Errorf("Exiting %v", err.Error())
 				return
 			}
 		case <-doneCh:
 			return
 		}
 	}
-
-	//for pw := range workQueue {
-	//	workQueue <- pw
-	//	if !c.Bitfield.HasPiece(pw.index) {
-	//		log.Printf("has no pice%v", pw.index)
-	//		continue
-	//	}
-	//
-	//	// Download the piece
-	//	_, err := attemptDownloadPiece(c, pw)
-	//	if err != nil {
-	//		log.Println("Exiting", err)
-	//		return
-	//	}
-	//	//err = checkIntegrity(pw, buf)
-	//	//if err != nil {
-	//	//	log.Printf("Piece #%d failed integrity check\n", pw.index)
-	//	//	workQueue <- pw // Put piece back on the queue
-	//	//	continue
-	//	//}
-	//	//
-	//	//c.SendHave(pw.index)
-	//	//results <- &pieceResult{pw.index, buf}
-	//}
 }
 
 func (t *Torrent) calculateBoundsForPiece(index int) (begin int, end int) {
@@ -205,11 +179,11 @@ func (t *Torrent) calculatePieceSize(index int) int {
 }
 
 // Download downloads the torrent. This stores the entire file in memory.
-func (t *Torrent) Download(srcIp string, doneCh chan struct{}) error {
-	log.Printf("Starting download for %v\n", t.Name)
+func (t *Torrent) Download(ethName string, doneCh chan struct{}) error {
+	//L.Infof("EthName %v starting download for %v", ethName, t.Name)
+
 	// Init queues for workers to retrieve work and send results
 	workQueue := make(chan *pieceWork, len(t.PieceHashes))
-	//results := make(chan *pieceResult)
 	for index, hash := range t.PieceHashes {
 		length := t.calculatePieceSize(index)
 		workQueue <- &pieceWork{index, hash, length}
@@ -217,21 +191,7 @@ func (t *Torrent) Download(srcIp string, doneCh chan struct{}) error {
 
 	// Start workers
 	for peer := range t.Peers {
-		go t.startDownloadWorker(peer, workQueue, srcIp, doneCh)
+		go t.startDownloadWorker(peer, workQueue, ethName, doneCh)
 	}
-
-	//Collect results into a buffer until full
-	//buf := make([]byte, t.Length)
-	//donePieces := 0
-	//for donePieces < len(t.PieceHashes) {
-	//	res := <-results
-	//	begin, end := t.calculateBoundsForPiece(res.index)
-	//	copy(buf[begin:end], res.buf)
-	//	donePieces++
-	//
-	//	percent := float64(donePieces) / float64(len(t.PieceHashes)) * 100
-	//	numWorkers := runtime.NumGoroutine() - 1 // subtract 1 for main thread
-	//	log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, res.index, numWorkers)
-	//}
 	return nil
 }

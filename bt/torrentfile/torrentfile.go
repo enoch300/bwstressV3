@@ -19,7 +19,7 @@ import (
 // Port to listen on
 const Port uint16 = 6881
 
-var DoneCh = make(chan struct{})
+var DoneCh chan struct{}
 
 // TorrentFile encodes the metadata from a .torrent file
 type TorrentFile struct {
@@ -44,7 +44,7 @@ type bencodeTorrent struct {
 }
 
 // DownloadToFile downloads a torrent and writes it to a file
-func (t *TorrentFile) DownloadToFile(srcIp string) error {
+func (t *TorrentFile) DownloadToFile(ethName string) error {
 	torrent := p2p.Torrent{
 		Peers:       make(chan peers.Peer),
 		InfoHash:    t.InfoHash,
@@ -54,12 +54,12 @@ func (t *TorrentFile) DownloadToFile(srcIp string) error {
 		Name:        t.Name,
 	}
 
-	go func(srcIp string) {
+	go func(ethName string) {
 		for {
 			select {
 			case <-DoneCh:
 				close(torrent.Peers)
-				L.Infof("srcIp %v task exit", srcIp)
+				L.Infof("EthName %v p2p task exit", ethName)
 				return
 			default:
 				time.Sleep(time.Minute)
@@ -68,15 +68,15 @@ func (t *TorrentFile) DownloadToFile(srcIp string) error {
 
 				//maxRecvSendBwPer 小于等于0 表示不判断总下行占总上行比例, 否则需要判断.
 				if (maxRecvSendRate <= 0 && collect.OutEthRecvByteAvg < maxDownload) || (maxRecvSendRate > 0 && collect.OutEthRecvSendUseRate < maxRecvSendRate && collect.OutEthRecvByteAvg < maxDownload) {
-					for _, outEthIfI := range collect.Net.IfiMap {
+					for ethN, outEthIfI := range collect.Net.IfiMap {
 						outEthIfRecv := util.FormatFloat64(util.ByteToBitM(outEthIfI.RecvByteAvg))
-						if outEthIfI.Ip == srcIp && outEthIfRecv < collect.OutIfMaxRecvBw {
-							L.Infof("Add peers srcIp %v, recv: %vMpbs, maxRecv: %vMpbs", srcIp, outEthIfRecv, collect.OutIfMaxRecvBw)
+						if ethN == ethName && outEthIfRecv < collect.OutIfMaxRecvBw {
+							L.Infof("Add peers ethName %v, ip: %v, recv: %vMpbs, maxRecv: %vMpbs", ethName, outEthIfI.Ip, outEthIfRecv, collect.OutIfMaxRecvBw)
 							var peerID [20]byte
 							_, err := rand.Read(peerID[:])
 							trackerPeers, err := t.requestPeers(peerID, Port)
 							if err != nil {
-								L.Errorf("srcIp: %v, requestPeers: %v", srcIp, err.Error())
+								L.Errorf("EthName: %v, ip: %v, requestPeers: %v", ethName, outEthIfI.Ip, err.Error())
 								break
 							}
 							for _, peer := range trackerPeers {
@@ -87,9 +87,9 @@ func (t *TorrentFile) DownloadToFile(srcIp string) error {
 				}
 			}
 		}
-	}(srcIp)
+	}(ethName)
 
-	err := torrent.Download(srcIp, DoneCh)
+	err := torrent.Download(ethName, DoneCh)
 	if err != nil {
 		return err
 	}
