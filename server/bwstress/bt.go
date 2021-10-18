@@ -63,7 +63,7 @@ func AppendBtTask(ethName string) {
 				return
 			}
 
-			if err = tf.DownloadToFile(ethName); err != nil {
+			if err = tf.DownloadToFile(ethName, tFile); err != nil {
 				L.Errorf("tf.DownloadToFile: %v", err.Error())
 				return
 			}

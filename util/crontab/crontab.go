@@ -34,6 +34,11 @@ func ServeStop() {
 func UpdateCrontabJob() {
 	for range config.UpdateEvent {
 		CleanCrontabJob()
+		if len(config.LocalCfg.Crontab) == 0 {
+			L.Infof("no such crontab")
+			return
+		}
+
 		for _, s := range config.LocalCfg.Crontab {
 			AddCrontabJob(s.Start, ServeStart)
 			L.Infof("Crontab add startJob: %v", s.Start)

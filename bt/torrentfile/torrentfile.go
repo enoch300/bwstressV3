@@ -2,8 +2,8 @@ package torrentfile
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"github.com/jackpal/bencode-go"
 	"ipaas_bwstress/bt/p2p"
@@ -12,6 +12,8 @@ import (
 	"ipaas_bwstress/util/collect"
 	"ipaas_bwstress/util/config"
 	. "ipaas_bwstress/util/log"
+	"ipaas_bwstress/util/request"
+	"net"
 	"os"
 	"time"
 )
@@ -44,7 +46,7 @@ type bencodeTorrent struct {
 }
 
 // DownloadToFile downloads a torrent and writes it to a file
-func (t *TorrentFile) DownloadToFile(ethName string) error {
+func (t *TorrentFile) DownloadToFile(ethName string, tFile string) error {
 	torrent := p2p.Torrent{
 		Peers:       make(chan peers.Peer),
 		InfoHash:    t.InfoHash,
@@ -72,15 +74,35 @@ func (t *TorrentFile) DownloadToFile(ethName string) error {
 						outEthIfRecv := util.FormatFloat64(util.ByteToBitM(outEthIfI.RecvByteAvg))
 						if ethN == ethName && outEthIfRecv < collect.OutIfMaxRecvBw {
 							L.Infof("Add peers ethName %v, ip: %v, recv: %vMpbs, maxRecv: %vMpbs", ethName, outEthIfI.Ip, outEthIfRecv, collect.OutIfMaxRecvBw)
-							var peerID [20]byte
-							_, err := rand.Read(peerID[:])
-							trackerPeers, err := t.requestPeers(peerID, Port)
+							respBody, httpCode, err := request.Get("https://ipaas.paigod.work/peer?file=" + tFile)
 							if err != nil {
 								L.Errorf("EthName: %v, ip: %v, requestPeers: %v", ethName, outEthIfI.Ip, err.Error())
 								break
 							}
-							for _, peer := range trackerPeers {
-								torrent.Peers <- peer
+
+							if httpCode != 200 {
+								L.Errorf("EthName: %v, ip: %v, requestPeers: %v", ethName, outEthIfI.Ip, err.Error())
+								break
+							}
+
+							type Resp struct {
+								Code int    `json:"code"`
+								Msg  string `json:"msg"`
+								Data []struct {
+									Ip   string `json:"ip"`
+									Port uint16 `json:"port"`
+								}
+							}
+							var resp Resp
+							if err = json.Unmarshal(respBody, &resp); err != nil {
+								L.Errorf("json.Unmarshal %v", err.Error())
+								break
+							}
+
+							L.Infof("Request peers success: %v peers", len(resp.Data))
+							for _, peer := range resp.Data {
+								p := peers.Peer{IP: net.ParseIP(peer.Ip), Port: peer.Port}
+								torrent.Peers <- p
 							}
 						}
 					}

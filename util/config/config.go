@@ -76,30 +76,26 @@ type Response struct {
 	Data []*RemoteConf `json:"data"`
 }
 
-func FetchRemoteConf() (r *RemoteConf, err error) {
+func FetchRemoteConf() (remoteConf []*RemoteConf, err error) {
 	body, code, err := request.Get(API + "?machine_id=" + util.MachineID)
 	if err != nil {
-		return r, err
+		return remoteConf, err
 	}
 
 	if code != 200 {
-		return r, fmt.Errorf("fetch httpCode: %v, body: %v", code, string(body))
+		return remoteConf, fmt.Errorf("fetch httpCode: %v, body: %v", code, string(body))
 	}
 
 	var response Response
 	if err = json.Unmarshal(body, &response); err != nil {
-		return r, err
+		return remoteConf, err
 	}
 
 	if response.Code == 1 {
-		return r, fmt.Errorf(response.Msg)
+		return remoteConf, fmt.Errorf(response.Msg)
 	}
 
-	if len(response.Data) == 0 {
-		return r, fmt.Errorf("remote config len 0")
-	}
-
-	return response.Data[0], nil
+	return response.Data, nil
 }
 
 func (r *RemoteConf) Check() {
@@ -112,14 +108,32 @@ func (r *RemoteConf) Check() {
 				continue
 			}
 
-			isModify, err := LocalCfg.IsModify(remoteConfData)
+			if len(remoteConfData) == 0 {
+				L.Warnf("%v has been deleted.", util.MachineID)
+				if LocalCfg.Enabled == 1 {
+					defaultConf := &RemoteConf{
+						MachineId:    util.MachineID,
+						RecvSendRate: 0,
+						MaxDownload:  0,
+						MaxUpload:    0,
+						Enabled:      0,
+						Filter:       "0.|127.|192.|172.",
+						Crontab:      make([]Crontab, 0),
+						UpdateAt:     "",
+					}
+					LocalCfg.Update(defaultConf)
+				}
+				continue
+			}
+
+			isModify, err := LocalCfg.IsModify(remoteConfData[0])
 			if err != nil {
 				L.Errorf("localConf.IsModify: %v", err.Error())
 				continue
 			}
 
 			if isModify {
-				LocalCfg.Update(remoteConfData)
+				LocalCfg.Update(remoteConfData[0])
 			}
 		}
 	}()

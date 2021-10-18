@@ -38,7 +38,7 @@ func (t *TorrentFile) requestPeers(peerID [20]byte, port uint16) ([]peers.Peer, 
 		return nil, err
 	}
 
-	c := &http.Client{Timeout: 15 * time.Second}
+	c := &http.Client{Timeout: 5 * time.Second}
 	resp, err := c.Get(trackerURL)
 	if err != nil {
 		return nil, err

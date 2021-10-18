@@ -9,7 +9,6 @@ import (
 	"ipaas_bwstress/bt/client"
 	"ipaas_bwstress/bt/message"
 	"ipaas_bwstress/bt/peers"
-	. "ipaas_bwstress/util/log"
 )
 
 // MaxBlockSize is the largest number of bytes a request can ask for
@@ -153,9 +152,9 @@ func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork
 			}
 
 			// Download the piece
-			_, err := attemptDownloadPiece(c, pw)
+			_, err = attemptDownloadPiece(c, pw)
 			if err != nil {
-				L.Errorf("Exiting %v", err.Error())
+				//L.Errorf("Exiting %v", err.Error())
 				return
 			}
 		case <-doneCh:
