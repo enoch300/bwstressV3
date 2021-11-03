@@ -17,6 +17,7 @@ import (
 	"ipaas_bwstress/util/crontab"
 	. "ipaas_bwstress/util/log"
 	"ipaas_bwstress/util/request"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -198,6 +199,7 @@ func GetUrls() {
 	}
 
 	ISOURL = urls
+	L.Infof("fetch urls success count: %v", len(ISOURL))
 	return
 }
 
@@ -212,6 +214,7 @@ func GetHealthResource(ethName string) (url string, err error) {
 	rand.Seed(time.Now().UnixNano())
 	i := rand.Intn(len(userAgent))
 	agent := userAgent[i]
+
 	var healthList []string
 	for _, u := range ISOURL {
 		t := gcurl.EasyInit()
@@ -253,18 +256,12 @@ func GetHealthResource(ethName string) (url string, err error) {
 }
 
 func AppendCurlTask(ethName string, n int, LimitRateMbps float64, outEthIfRecv float64, outIfMaxRecvBw float64) {
-	isIPV6 := strings.Contains(ethName, ":")
-	if isIPV6 {
-		return
+	for i := 0; i < n; i++ {
+		rand.Seed(time.Now().UnixNano())
+		index := rand.Intn(len(ISOURL))
+		t := NewTask(ethName, LimitRateMbps, ISOURL[index])
+		go t.Do()
 	}
-	url, err := GetHealthResource(ethName)
-	if err != nil {
-		L.Warnf("Add curl task >>> ethName: %v, url: %v, recv: %vMbps,  maxRecv: %vMbps, err: %v", ethName, url, outEthIfRecv, outIfMaxRecvBw, err)
-		return
-	}
-
-	t := NewTask(ethName, LimitRateMbps, url)
-	go t.Do()
 	L.Infof("Add curl task >>> ethName: %v %v, recv: %vMbps,  maxRecv: %vMbps", ethName, n, outEthIfRecv, outIfMaxRecvBw)
 }
 
@@ -280,7 +277,7 @@ func CURLWorking() {
 	go UpdateResource()
 
 	for {
-		time.Sleep(10 * time.Minute)
+		time.Sleep(5 * time.Minute)
 		if !ServeRun {
 			time.Sleep(2 * time.Minute)
 			return
@@ -295,9 +292,17 @@ func CURLWorking() {
 				outEthIfRecv := util.FormatFloat64(util.ByteToBitM(outEthIfI.RecvByteAvg))
 				if outEthIfRecv < collect.OutIfMaxRecvBw {
 					if collect.OutIfMaxRecvBw > 30 {
-						AppendCurlTask(ethName, 1, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
+						n := int(math.Floor((collect.OutIfMaxRecvBw - outEthIfRecv) / 30))
+						if n > 0 {
+							AppendCurlTask(ethName, 3, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
+						}
+						//AppendCurlTask(ethName, 5, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
 					} else {
-						AppendCurlTask(ethName, 1, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
+						n := int(math.Floor((collect.OutIfMaxRecvBw - outEthIfRecv) / 10))
+						if n > 0 {
+							AppendCurlTask(ethName, 3, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
+						}
+						//AppendCurlTask(ethName, 5, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
 					}
 				}
 			}

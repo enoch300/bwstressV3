@@ -1,0 +1,15 @@
+[Unit]
+Description=bwstress server
+
+[Service]
+ExecStart=/ipaas/bwstress/bin/bwstress
+Restart=always
+User=root
+Group=root
+LimitNOFILE=3276800
+LimitNPROC=3276800
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/ipaas/bwstress/bin/
+
+[Install]
+WantedBy=multi-user.target
