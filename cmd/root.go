@@ -19,7 +19,7 @@ var logpath string
 var rootCmd = &cobra.Command{
 	Use:     "bwstress",
 	Short:   "带宽补量程序",
-	Version: "3.1",
+	Version: "3.2.0",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.New(logpath, "bwstress", 3)
 		server.Run()

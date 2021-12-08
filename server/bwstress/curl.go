@@ -283,6 +283,10 @@ func CURLWorking() {
 			return
 		}
 
+		if config.LocalCfg.Enabled == 0 {
+			continue
+		}
+
 		maxDownload := float64(config.LocalCfg.MaxDownload)
 		maxRecvSendRate := float64(config.LocalCfg.RecvSendRate)
 

@@ -45,8 +45,67 @@ type bencodeTorrent struct {
 	Info     bencodeInfo `bencode:"info"`
 }
 
+var TFiles = []string{
+	"debian-11.0.0-i386-DVD-1.iso.torrent",
+	"ubuntu-20.10-desktop-amd64.iso.torrent",
+	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
+	"ubuntu-21.04-live-server-amd64.iso.torrent",
+	"ubuntu-21.04-desktop-amd64.iso.torrent",
+}
+var TFilesPeers = make(map[string][]peers.Peer)
+
+type Response struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data []struct {
+		Ip   string `json:"ip"`
+		Port uint16 `json:"port"`
+	}
+}
+
+func getPeers(fname string) (peersList []peers.Peer) {
+	respBody, httpCode, err := request.Get("https://ipaas.paigod.work/peer?file=" + fname)
+	if err != nil {
+		L.Errorf("Get %v peers: %v", fname, err.Error())
+		return
+	}
+
+	if httpCode != 200 {
+		L.Errorf("Get %v peers error, httpCode: %v", fname, httpCode)
+		return
+	}
+
+	var resp Response
+	if err = json.Unmarshal(respBody, &resp); err != nil {
+		L.Errorf("Get %v peers error, json.Unmarshal %v", fname, err.Error())
+		return
+	}
+
+	for _, p := range resp.Data {
+		peersList = append(peersList, peers.Peer{IP: net.ParseIP(p.Ip), Port: p.Port})
+	}
+
+	L.Infof("Request %v peers success: %v peers", fname, len(resp.Data))
+	return
+}
+
+func RequestTFilesPeers() {
+	for {
+		select {
+		case <-DoneCh:
+			return
+		default:
+			for _, fname := range TFiles {
+				peerList := getPeers(fname)
+				TFilesPeers[fname] = peerList
+			}
+			time.Sleep(5 * time.Minute)
+		}
+	}
+}
+
 // DownloadToFile downloads a torrent and writes it to a file
-func (t *TorrentFile) DownloadToFile(ethName string, tFile string) error {
+func (t *TorrentFile) DownloadToFile(ethName string, fname string) {
 	torrent := p2p.Torrent{
 		Peers:       make(chan peers.Peer),
 		InfoHash:    t.InfoHash,
@@ -65,6 +124,10 @@ func (t *TorrentFile) DownloadToFile(ethName string, tFile string) error {
 				return
 			default:
 				time.Sleep(time.Minute)
+				if config.LocalCfg.Enabled == 0 {
+					continue
+				}
+
 				maxDownload := float64(config.LocalCfg.MaxDownload)
 				maxRecvSendRate := float64(config.LocalCfg.RecvSendRate)
 
@@ -74,35 +137,8 @@ func (t *TorrentFile) DownloadToFile(ethName string, tFile string) error {
 						outEthIfRecv := util.FormatFloat64(util.ByteToBitM(outEthIfI.RecvByteAvg))
 						if ethN == ethName && outEthIfRecv < collect.OutIfMaxRecvBw {
 							L.Infof("Add peers ethName %v, ip: %v, recv: %vMpbs, maxRecv: %vMpbs", ethName, outEthIfI.Ip, outEthIfRecv, collect.OutIfMaxRecvBw)
-							respBody, httpCode, err := request.Get("https://ipaas.paigod.work/peer?file=" + tFile)
-							if err != nil {
-								L.Errorf("EthName: %v, ip: %v, requestPeers: %v", ethName, outEthIfI.Ip, err.Error())
-								break
-							}
-
-							if httpCode != 200 {
-								L.Errorf("EthName: %v, ip: %v, requestPeers: %v", ethName, outEthIfI.Ip, err.Error())
-								break
-							}
-
-							type Resp struct {
-								Code int    `json:"code"`
-								Msg  string `json:"msg"`
-								Data []struct {
-									Ip   string `json:"ip"`
-									Port uint16 `json:"port"`
-								}
-							}
-							var resp Resp
-							if err = json.Unmarshal(respBody, &resp); err != nil {
-								L.Errorf("json.Unmarshal %v", err.Error())
-								break
-							}
-
-							L.Infof("Request peers success: %v peers", len(resp.Data))
-							for _, peer := range resp.Data {
-								p := peers.Peer{IP: net.ParseIP(peer.Ip), Port: peer.Port}
-								torrent.Peers <- p
+							for _, p := range TFilesPeers[fname] {
+								torrent.Peers <- peers.Peer{IP: net.ParseIP(p.IP.String()), Port: p.Port}
 							}
 						}
 					}
@@ -111,11 +147,7 @@ func (t *TorrentFile) DownloadToFile(ethName string, tFile string) error {
 		}
 	}(ethName)
 
-	err := torrent.Download(ethName, DoneCh)
-	if err != nil {
-		return err
-	}
-	return nil
+	go torrent.Download(ethName, DoneCh)
 }
 
 // Open parses a torrent file

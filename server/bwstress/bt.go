@@ -15,33 +15,6 @@ import (
 	"strings"
 )
 
-var tFiles = []string{
-	"debian-11.0.0-i386-DVD-1.iso.torrent",
-	"debian-11.0.0-i386-DVD-1.iso.torrent",
-	"debian-11.0.0-i386-DVD-1.iso.torrent",
-	"debian-11.0.0-i386-DVD-1.iso.torrent",
-	"debian-11.1.0-i386-DVD-1.iso.torrent",
-	"debian-11.1.0-i386-DVD-1.iso.torrent",
-	"debian-11.1.0-i386-DVD-1.iso.torrent",
-	"debian-11.1.0-i386-DVD-1.iso.torrent",
-	"ubuntu-20.10-desktop-amd64.iso.torrent",
-	"ubuntu-20.10-desktop-amd64.iso.torrent",
-	"ubuntu-20.10-desktop-amd64.iso.torrent",
-	"ubuntu-20.10-desktop-amd64.iso.torrent",
-	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
-	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
-	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
-	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-desktop-amd64.iso.torrent",
-	"ubuntu-21.04-desktop-amd64.iso.torrent",
-	"ubuntu-21.04-desktop-amd64.iso.torrent",
-	"ubuntu-21.04-desktop-amd64.iso.torrent",
-}
-
 func AppendBtTask(ethName string) {
 	ip := collect.Net.IfiMap[ethName].Ip
 	isIPV6 := strings.Contains(ip, ":")
@@ -49,33 +22,24 @@ func AppendBtTask(ethName string) {
 		return
 	}
 
-	for _, f := range tFiles {
-		go func(tFile, ethName string) {
-			defer func() {
-				if err := recover(); err != nil {
-					L.Errorf("Bt task panic to ethName %v ip %v, %v", ethName, ip, err)
-				}
-			}()
-
-			tf, err := torrentfile.Open("../.torrentfile/" + tFile)
+	for _, f := range torrentfile.TFiles {
+		for i := 0; i < 4; i++ {
+			tf, err := torrentfile.Open("../.torrentfile/" + f)
 			if err != nil {
-				L.Errorf("torrentfile.Open: %v", err)
+				L.Errorf("EthName: %v, ip: %v, torrentfile.Open: %v", ethName, ip, err)
 				return
 			}
 
-			if err = tf.DownloadToFile(ethName, tFile); err != nil {
-				L.Errorf("tf.DownloadToFile: %v", err.Error())
-				return
-			}
-		}(f, ethName)
+			tf.DownloadToFile(ethName, f)
+			L.Infof("PreAdd tasks success >>> ethName: %v, ip: %v, tfile: %v", ethName, ip, f)
+		}
 	}
-
-	L.Infof("PreAdd %v tasks >>> ethName: %v, ip: %v", len(tFiles), ethName, ip)
 }
 
 func BTWorking() {
 	torrentfile.DoneCh = make(chan struct{})
-	for ethName, _ := range collect.Net.IfiMap {
+	go torrentfile.RequestTFilesPeers()
+	for ethName := range collect.Net.IfiMap {
 		AppendBtTask(ethName)
 	}
 }

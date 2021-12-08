@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"ipaas_bwstress/util/log"
 	"time"
 
 	"ipaas_bwstress/bt/client"
@@ -131,10 +132,11 @@ func checkIntegrity(pw *pieceWork, buf []byte) error {
 func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork, ethName string, doneCh chan struct{}) {
 	c, err := client.New(peer, t.PeerID, t.InfoHash, ethName)
 	if err != nil {
-		//log.Printf("Could not handshake with %s. Disconnecting\n", peer.IP)
+		//log.L.Errorf("EthName: %v, Could not handshake with %s. Disconnecting, err: %v", ethName, peer.IP, err)
 		return
 	}
 	defer c.Conn.Close()
+	log.L.Infof("EthName: %v, handshake with %s success.", ethName, peer.IP)
 
 	c.SendUnchoke()
 	c.SendInterested()
@@ -154,7 +156,7 @@ func (t *Torrent) startDownloadWorker(peer peers.Peer, workQueue chan *pieceWork
 			// Download the piece
 			_, err = attemptDownloadPiece(c, pw)
 			if err != nil {
-				//L.Errorf("Exiting %v", err.Error())
+				log.L.Errorf("EthName: %v, exist attemptDownloadPiece with %v %v.", ethName, peer.IP, err)
 				return
 			}
 		case <-doneCh:
@@ -178,7 +180,7 @@ func (t *Torrent) calculatePieceSize(index int) int {
 }
 
 // Download downloads the torrent. This stores the entire file in memory.
-func (t *Torrent) Download(ethName string, doneCh chan struct{}) error {
+func (t *Torrent) Download(ethName string, doneCh chan struct{}) {
 	//L.Infof("EthName %v starting download for %v", ethName, t.Name)
 
 	// Init queues for workers to retrieve work and send results
@@ -190,7 +192,7 @@ func (t *Torrent) Download(ethName string, doneCh chan struct{}) error {
 
 	// Start workers
 	for peer := range t.Peers {
+		time.Sleep(100 * time.Millisecond)
 		go t.startDownloadWorker(peer, workQueue, ethName, doneCh)
 	}
-	return nil
 }
