@@ -52,10 +52,10 @@ func BTRun() {
 	for {
 		select {
 		case <-crontab.BTStartEventCh:
-			L.Infof("+++ p2p start +++")
+			L.Infof("+++ detect start +++")
 			go BTWorking()
 		case <-crontab.BTStopEventCh:
-			L.Infof("+++ p2p stop +++")
+			L.Infof("+++ detect stop +++")
 			BTStop()
 		}
 	}

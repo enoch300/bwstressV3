@@ -48,8 +48,8 @@ type bencodeTorrent struct {
 var TFiles = []string{
 	"debian-11.0.0-i386-DVD-1.iso.torrent",
 	"ubuntu-20.10-desktop-amd64.iso.torrent",
-	"ubuntu-20.04.3-live-server-amd64.iso.torrent",
-	"ubuntu-21.04-live-server-amd64.iso.torrent",
+	"ubuntu-20.04.3-live-app-amd64.iso.torrent",
+	"ubuntu-21.04-live-app-amd64.iso.torrent",
 	"ubuntu-21.04-desktop-amd64.iso.torrent",
 }
 var TFilesPeers = make(map[string][]peers.Peer)
@@ -120,7 +120,7 @@ func (t *TorrentFile) DownloadToFile(ethName string, fname string) {
 			select {
 			case <-DoneCh:
 				close(torrent.Peers)
-				L.Infof("EthName %v p2p task exit", ethName)
+				L.Infof("EthName %v detect task exit", ethName)
 				return
 			default:
 				time.Sleep(time.Minute)

@@ -98,7 +98,7 @@ func (t *Task) SpeedMonitor() {
 		}
 
 		if !ServeRun {
-			L.Infof("EthName: %v speed monitor stop, server run flag is %v", t.EthName, ServeRun)
+			L.Infof("EthName: %v speed monitor stop, app run flag is %v", t.EthName, ServeRun)
 			break
 		}
 
@@ -298,13 +298,13 @@ func CURLWorking() {
 					if collect.OutIfMaxRecvBw > 30 {
 						n := int(math.Floor((collect.OutIfMaxRecvBw - outEthIfRecv) / 30))
 						if n > 0 {
-							AppendCurlTask(ethName, 3, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
+							AppendCurlTask(ethName, n, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
 						}
 						//AppendCurlTask(ethName, 5, 30, outEthIfRecv, collect.OutIfMaxRecvBw)
 					} else {
 						n := int(math.Floor((collect.OutIfMaxRecvBw - outEthIfRecv) / 10))
 						if n > 0 {
-							AppendCurlTask(ethName, 3, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
+							AppendCurlTask(ethName, n, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
 						}
 						//AppendCurlTask(ethName, 5, 10, outEthIfRecv, collect.OutIfMaxRecvBw)
 					}
