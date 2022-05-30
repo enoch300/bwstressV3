@@ -68,12 +68,12 @@ func (t *Task) progress(float64, float64, float64, float64, interface{}) bool {
 }
 
 func (t *Task) Do() {
-	defer t.Curl.Cleanup()
 	defer func() {
 		if err := recover(); err != nil {
 			L.Errorf("Do_panic: %v", err)
 		}
 	}()
+	defer t.Curl.Cleanup()
 	go t.SpeedMonitor()
 	if err := t.Curl.Perform(); err != nil {
 		if !strings.Contains(err.Error(), "Operation was aborted by an application callback") &&
@@ -91,6 +91,11 @@ func (t *Task) Stop() {
 }
 
 func (t *Task) SpeedMonitor() {
+	defer func() {
+		if err := recover(); err != nil {
+			L.Errorf("Do_panic: %v", err)
+		}
+	}()
 	for {
 		if !t.Run {
 			L.Infof("EthName: %v speed monitor stop, task run flag is %v", t.EthName, t.Run)
